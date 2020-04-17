@@ -83,7 +83,9 @@ void ledInit()
     GPIO_Init(led_port[i], &GPIO_InitStructure);
 
     //Turn off the LED:s
-    ledSet(i, 0);
+
+    	ledSet(i, 0);
+
   }
 
   isInit = true;

@@ -1,3 +1,4 @@
+
 /*
  *    ||          ____  _ __
  * +------+      / __ )(_) /_______________ _____  ___
@@ -61,30 +62,31 @@
 #include "buzzer.h"
 #include "sound.h"
 #include "sysload.h"
-#include "estimator_kalman.h"
 #include "deck.h"
 #include "extrx.h"
-#include "app.h"
-#include "static_mem.h"
+#include "led_sequence.c"
 
 /* Private variable */
 static bool selftestPassed;
 static bool canFly;
 static bool isInit;
 
-STATIC_MEM_TASK_ALLOC(systemTask, SYSTEM_TASK_STACKSIZE);
-
 /* System wide synchronisation */
 xSemaphoreHandle canStartMutex;
-static StaticSemaphore_t canStartMutexBuffer;
 
 /* Private functions */
 static void systemTask(void *arg);
+static void ledsequenceRun(void *param);
+
+void led_sequenceInit (void);
 
 /* Public functions */
 void systemLaunch(void)
 {
-  STATIC_MEM_TASK_CREATE(systemTask, systemTask, SYSTEM_TASK_NAME, NULL, SYSTEM_TASK_PRI);
+  xTaskCreate(systemTask, SYSTEM_TASK_NAME,
+              SYSTEM_TASK_STACKSIZE, NULL,
+              SYSTEM_TASK_PRI, NULL);
+
 }
 
 // This must be the first module to be initialized!
@@ -93,7 +95,7 @@ void systemInit(void)
   if(isInit)
     return;
 
-  canStartMutex = xSemaphoreCreateMutexStatic(&canStartMutexBuffer);
+  canStartMutex = xSemaphoreCreateMutex();
   xSemaphoreTake(canStartMutex, portMAX_DELAY);
 
   usblinkInit();
@@ -101,7 +103,7 @@ void systemInit(void)
 
   /* Initialized here so that DEBUG_PRINT (buffered) can be used early */
   debugInit();
-  crtpInit();
+  crtpInit();     // crtp.c (module) Transfer protocol stack
   consoleInit();
 
   DEBUG_PRINT("----------------------------\n");
@@ -118,15 +120,11 @@ void systemInit(void)
               *((int*)(MCU_ID_ADDRESS+0)), *((short*)(MCU_FLASH_SIZE_ADDRESS)));
 
   configblockInit();
-  workerInit();
-  adcInit();
-  ledseqInit();
-  pmInit();
-  buzzerInit();
-
-#ifdef APP_ENABLED
-  appInit();
-#endif
+  workerInit();        // worker.c (module)
+  adcInit();           // adc_f103.c (drivers)
+  ledseqInit();        // led_f405.c (drivers)
+ // pmInit();            // Power management (hal)
+//  buzzerInit();        // buzzer.c (hal)
 
   isInit = true;
 }
@@ -136,9 +134,9 @@ bool systemTest()
   bool pass=isInit;
 
   pass &= ledseqTest();
-  pass &= pmTest();
+ // pass &= pmTest();
   pass &= workerTest();
-  pass &= buzzerTest();
+ // pass &= buzzerTest();
   return pass;
 }
 
@@ -163,42 +161,46 @@ void systemTask(void *arg)
 #endif
 
   //Init the high-levels modules
-  systemInit();
-  commInit();
-  commanderInit();
+  systemInit();    // Init
+  commInit();      // comm.c (modules) communication with the radio
+  commanderInit(); // Priority
 
   StateEstimatorType estimator = anyEstimator;
-  estimatorKalmanTaskInit();
-  deckInit();
+ // StateEstimatorType estimator = kalmanEstimator;
+  deckInit();  // deck.c (deck->core)
   estimator = deckGetRequiredEstimator();
-  stabilizerInit(estimator);
+  stabilizerInit(estimator);   // stabilizer.c (modules) motorInint
   if (deckGetRequiredLowInterferenceRadioMode() && platformConfigPhysicalLayoutAntennasAreClose())
   {
     platformSetLowInterferenceRadioMode();
   }
-  soundInit();
-  memInit();
+//  soundInit();  // sound_cf2.c (modules)
+  memInit();    // mem_cf2.c (modules)
+ // led_sequenceInit();
+ // led_sequence();
 
 #ifdef PROXIMITY_ENABLED
   proximityInit();
 #endif
+
 
   //Test the modules
   pass &= systemTest();
   pass &= configblockTest();
   pass &= commTest();
   pass &= commanderTest();
-  pass &= stabilizerTest();
-  pass &= estimatorKalmanTaskTest();
+  pass &= stabilizerTest(); // stabilizer.c (module)
   pass &= deckTest();
-  pass &= soundTest();
+  //pass &= soundTest();
   pass &= memTest();
   pass &= watchdogNormalStartTest();
+
 
   //Start the firmware
   if(pass)
   {
     selftestPassed = 1;
+
     systemStart();
     soundSetEffect(SND_STARTUP);
     ledseqRun(SYS_LED, seq_alive);
@@ -207,17 +209,21 @@ void systemTask(void *arg)
   else
   {
     selftestPassed = 0;
+
     if (systemTest())
     {
       while(1)
       {
         ledseqRun(SYS_LED, seq_testPassed); //Red passed == not passed!
+
         vTaskDelay(M2T(2000));
         // System can be forced to start by setting the param to 1 from the cfclient
         if (selftestPassed)
         {
 	        DEBUG_PRINT("Start forced.\n");
+
           systemStart();
+
           break;
         }
       }
@@ -230,6 +236,8 @@ void systemTask(void *arg)
   }
   DEBUG_PRINT("Free heap: %d bytes\n", xPortGetFreeHeapSize());
 
+  //ledSet(2, 1); //M4 red
+  //ledSet(1, 0); //M4 green
   workerLoop();
 
   //Should never reach this point!
@@ -286,6 +294,42 @@ void vApplicationIdleHook( void )
   { __asm volatile ("wfi"); }
 #endif
 }
+
+void led_sequenceInit (void)
+{
+	ledSet(2, 1); //M4 red
+	ledSet(1, 0); //M4 green
+
+//		ledsequenceRun();
+ xTaskCreate(ledsequenceRun, "Hello", SYSTEM_TASK_STACKSIZE, NULL, 0, NULL);
+
+// xTaskCreate(systemTask, SYSTEM_TASK_NAME,
+  //             SYSTEM_TASK_STACKSIZE, NULL,
+    //           SYSTEM_TASK_PRI, NULL);
+}
+
+void ledsequenceRun (void *param)
+{
+
+	while(1)
+	{
+	ledSet(0, 1); //M3 only blue
+	ledSet(2, 0); //M4 red
+	ledSet(1, 1); //M4 green
+	motorsSetRatio(MOTOR_M1, 0x0000); // low velocity 0x0850, high velocity 0xFFF
+	motorsSetRatio(MOTOR_M2, 0x0000);
+	motorsSetRatio(MOTOR_M3, 0x0000);
+	motorsSetRatio(MOTOR_M4, 0x0000);
+	//motorsTest();
+	vTaskDelay(M2T(250));
+	ledSet(0, 0); //M3 only blue
+	ledSet(2, 0); //M4 red
+	ledSet(1, 1); //M4 green
+	vTaskDelay(M2T(250));
+
+	}
+}
+
 
 /*System parameters (mostly for test, should be removed from here) */
 PARAM_GROUP_START(cpu)

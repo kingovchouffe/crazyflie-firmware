@@ -1,6 +1,6 @@
 /*
- *    ||          ____  _ __
- * +------+      / __ )(_) /_______________ _____  ___
+ *    ||          ____  _ __                           
+ * +------+      / __ )(_) /_______________ _____  ___ 
  * | 0xBC |     / __  / / __/ ___/ ___/ __ `/_  / / _ \
  * +------+    / /_/ / / /_/ /__/ /  / /_/ / / /_/  __/
  *  ||  ||    /_____/_/\__/\___/_/   \__,_/ /___/\___/
@@ -42,48 +42,60 @@
 #include "configblock.h"
 #include "pm.h"
 #include "ow.h"
-#include "static_mem.h"
-
-#ifdef UART2_LINK_COMM
-#include "uart2.h"
-#endif
+#include "stabilizer.h"
 
 static bool isInit = false;
-static uint8_t sendBuffer[SYSLINK_MTU + 6];
+static uint8_t sendBuffer[64];
+//extern bool flag;
 
 static void syslinkRouteIncommingPacket(SyslinkPacket *slp);
 
 static xSemaphoreHandle syslinkAccess;
 
-STATIC_MEM_TASK_ALLOC(syslinkTask, SYSLINK_TASK_STACKSIZE);
+radio_t radio;
 
 /* Syslink task, handles communication between nrf and stm and dispatch messages
  */
 static void syslinkTask(void *param)
 {
   SyslinkPacket slp;
+
+  float Rps4, Pps4, Yps4;
+  uint8_t Tps4;
+  char cdata[4];
+
   while(1)
   {
     uartslkGetPacketBlocking(&slp);
     syslinkRouteIncommingPacket(&slp);
+
+    //Radio information
+    for(int i=1;i<=4;i++)
+    	cdata[i-1] = slp.data[i];  //Roll
+    memcpy(&Rps4,cdata,4);
+
+    for(int i=5;i<=8;i++)
+    	cdata[i-5] = slp.data[i]; //Pitch
+    memcpy(&Pps4,cdata,4);
+
+    for(int i=9;i<=12;i++)
+    	cdata[i-9] = slp.data[i]; //Yaw
+    memcpy(&Yps4,cdata,4);
+
+    Tps4 = slp.data[14];
+
+    if(Rps4 < 3.5f || Rps4 > 4.1f)
+    	radio.Rps4 = Rps4;
+
+    if(Pps4 < 0.0013f || Pps4>0.0015f)
+    	radio.Pps4 = Pps4;
+
+    radio.Yps4 = Yps4;
+    radio.Tps4 = Tps4;
+
+//    DEBUG_PRINT("%f \n", (double)radio.Rps4);
   }
 }
-
-#ifdef UART2_LINK_COMM
-
-STATIC_MEM_TASK_ALLOC(uart2Task, UART2_TASK_STACKSIZE);
-
-static void uart2Task(void *param)
-{
-  SyslinkPacket slp;
-  while(1)
-  {
-    uart2GetPacketBlocking(&slp);
-    syslinkRouteIncommingPacket(&slp);
-  }
-}
-
-#endif
 
 static void syslinkRouteIncommingPacket(SyslinkPacket *slp)
 {
@@ -114,20 +126,16 @@ static void syslinkRouteIncommingPacket(SyslinkPacket *slp)
 
 void syslinkInit()
 {
-  if(isInit) {
+  if(isInit)
     return;
-  }
 
   vSemaphoreCreateBinary(syslinkAccess);
 
-  STATIC_MEM_TASK_CREATE(syslinkTask, syslinkTask, SYSLINK_TASK_NAME, NULL, SYSLINK_TASK_PRI);
-
-  #ifdef UART2_LINK_COMM
-  uart2Init(512000);
-  STATIC_MEM_TASK_CREATE(uart2Task, uart2Task, UART2_TASK_NAME, NULL, UART2_TASK_PRI);
-  #endif
-
-  isInit = true;
+  if (xTaskCreate(syslinkTask, SYSLINK_TASK_NAME,
+                  SYSLINK_TASK_STACKSIZE, NULL, SYSLINK_TASK_PRI, NULL) == pdPASS)
+  {
+    isInit = true;
+  }
 }
 
 bool syslinkTest()
@@ -161,27 +169,7 @@ int syslinkSendPacket(SyslinkPacket *slp)
   sendBuffer[dataSize-2] = cksum[0];
   sendBuffer[dataSize-1] = cksum[1];
 
-  #ifdef UART2_LINK_COMM
-  uint8_t groupType;
-  groupType = slp->type & SYSLINK_GROUP_MASK;
-  switch (groupType)
-  {
-  case SYSLINK_RADIO_GROUP:
-    uart2SendDataDmaBlocking(dataSize, sendBuffer);
-    break;
-  case SYSLINK_PM_GROUP:
-    uartslkSendDataDmaBlocking(dataSize, sendBuffer);
-    break;
-  case SYSLINK_OW_GROUP:
-    uartslkSendDataDmaBlocking(dataSize, sendBuffer);
-    break;
-  default:
-    DEBUG_PRINT("Unknown packet:%X.\n", slp->type);
-    break;
-  }
-  #else
   uartslkSendDataDmaBlocking(dataSize, sendBuffer);
-  #endif
 
   xSemaphoreGive(syslinkAccess);
 

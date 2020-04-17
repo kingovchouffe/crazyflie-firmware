@@ -45,6 +45,8 @@
 #include "configblock.h"
 #include "lpsTdma.h"
 
+#include "debug.h"
+
 #define ANTENNA_OFFSET 154.6   // In meter
 
 // Config
@@ -76,16 +78,16 @@ static lpsTwrAlgoOptions_t defaultOptions = {
 
    // To set a static anchor position from startup, uncomment and modify the
    // following code:
- //   .anchorPosition = {
- //     {timestamp: 1, x: 0.99, y: 1.49, z: 1.80},
- //     {timestamp: 1, x: 0.99, y: 3.29, z: 1.80},
- //     {timestamp: 1, x: 4.67, y: 2.54, z: 1.80},
- //     {timestamp: 1, x: 0.59, y: 2.27, z: 0.20},
- //     {timestamp: 1, x: 4.70, y: 3.38, z: 0.20},
- //     {timestamp: 1, x: 4.70, y: 1.14, z: 0.20},
- //   },
- //
- //   .combinedAnchorPositionOk = true,
+    .anchorPosition = {
+      {timestamp: 1, x: 0.0,  y: 0.0, z: 0.0},
+      {timestamp: 1, x: 0.0,  y: 3.0, z: 0.0},
+      {timestamp: 1, x: 2.25, y: 1.5, z: 0.05},
+      {timestamp: 1, x: 2.25, y: 0.0, z: 0.90},
+      {timestamp: 1, x: 0.0,  y: 1.5, z: 0.90},
+      {timestamp: 1, x: 2.25, y: 3.0, z: 0.90},
+    },
+
+    .combinedAnchorPositionOk = true,
 };
 
 typedef struct {
@@ -234,6 +236,7 @@ static uint32_t rxcallback(dwDevice_t *dev) {
       tprop_ctn = ((tround1*tround2) - (treply1*treply2)) / (tround1 + tround2 + treply1 + treply2);
 
       tprop = tprop_ctn / LOCODECK_TS_FREQ;
+
       state.distance[current_anchor] = SPEED_OF_LIGHT * tprop;
       state.pressures[current_anchor] = report->asl;
 
@@ -259,6 +262,11 @@ static uint32_t rxcallback(dwDevice_t *dev) {
         dist.z = options->anchorPosition[current_anchor].z;
         dist.stdDev = 0.25;
         estimatorEnqueueDistance(&dist);
+
+       // DEBUG_PRINT("Still conecting \n");
+       // DEBUG_PRINT("y=%f \n",(double)dist.pos[1]);
+       // DEBUG_PRINT("x=%f \n",(double)dist.distance);
+
       }
 
       if (options->useTdma && current_anchor == 0) {
@@ -491,6 +499,8 @@ static void twrTagInit(dwDevice_t *dev)
   memset(state.distance, 0, sizeof(state.distance));
   memset(state.pressures, 0, sizeof(state.pressures));
   memset(state.failedRanging, 0, sizeof(state.failedRanging));
+
+ // DEBUG_PRINT("hello twrtaginit");
 
   dwSetReceiveWaitTimeout(dev, TWR_RECEIVE_TIMEOUT);
 

@@ -45,11 +45,7 @@
 
 void debugInit(void);
 
-#if defined(UNIT_TEST_MODE)
-  // Empty defines when running unit tests
-  #define DEBUG_PRINT(fmt, ...)
-  #define DEBUG_PRINT_OS(fmt, ...)
-#elif defined(DEBUG_PRINT_ON_UART)
+#if defined(DEBUG_PRINT_ON_UART)
   #define DEBUG_PRINT(fmt, ...) uartPrintf(DEBUG_FMT(fmt), ##__VA_ARGS__)
   #define DEBUG_PRINT_OS(fmt, ...) uartPrintf(DEBUG_FMT(fmt), ##__VA_ARGS__)
 #elif defined(DEBUG_PRINT_ON_SWO)
@@ -78,3 +74,4 @@ void debugInit(void);
   #define TEST_AND_PRINT(e, msgOK, msgFail)
   #define FAIL_PRINT(msg)
 #endif
+

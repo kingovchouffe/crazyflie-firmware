@@ -156,11 +156,6 @@ static USB_OTG_STS USB_OTG_CoreReset(USB_OTG_CORE_HANDLE *pdev)
   return status;
 }
 
-// USB_OTG_WritePacket and USB_OTG_ReadPacket report warnings
-// on GNU Embedded Toolchain for Arm 2019-q3
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wattributes"
-
 /**
 * @brief  USB_OTG_WritePacket : Writes a packet into the Tx FIFO associated 
 *         with the EP
@@ -215,7 +210,6 @@ void *USB_OTG_ReadPacket(USB_OTG_CORE_HANDLE *pdev,
   }
   return ((void *)dest);
 }
-#pragma GCC diagnostic pop
 
 /**
 * @brief  USB_OTG_SelectCore 

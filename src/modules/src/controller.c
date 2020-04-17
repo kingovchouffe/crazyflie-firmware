@@ -5,7 +5,6 @@
 #include "controller.h"
 #include "controller_pid.h"
 #include "controller_mellinger.h"
-#include "controller_indi.h"
 
 #define DEFAULT_CONTROLLER ControllerTypePID
 static ControllerType currentController = ControllerTypeAny;
@@ -23,7 +22,6 @@ static ControllerFcns controllerFunctions[] = {
   {.init = 0, .test = 0, .update = 0, .name = "None"}, // Any
   {.init = controllerPidInit, .test = controllerPidTest, .update = controllerPid, .name = "PID"},
   {.init = controllerMellingerInit, .test = controllerMellingerTest, .update = controllerMellinger, .name = "Mellinger"},
-  {.init = controllerINDIInit, .test = controllerINDITest, .update = controllerINDI, .name = "INDI"},
 };
 
 
@@ -63,6 +61,7 @@ bool controllerTest(void) {
 
 void controller(control_t *control, setpoint_t *setpoint, const sensorData_t *sensors, const state_t *state, const uint32_t tick) {
   controllerFunctions[currentController].update(control, setpoint, sensors, state, tick);
+  DEBUG_PRINT("Hello controller \n");
 }
 
 const char* controllerGetName() {

@@ -33,4 +33,8 @@
 #ifndef __LIGHTHOUSE_H__
 #define __LIGHTHOUSE_H__
 
+#include "lighthouse_geometry.h"
+
+extern baseStationGeometry_t lighthouseBaseStationsGeometry[2];
+
 #endif // __LIGHTHOUSE_H__

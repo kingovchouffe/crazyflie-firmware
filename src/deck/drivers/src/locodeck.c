@@ -268,6 +268,8 @@ static void uwbTask(void* parameters) {
 
   systemWaitStart();
 
+//  DEBUG_PRINT("Hello uwbTask \n");
+
   while(1) {
     xSemaphoreTake(algoSemaphore, portMAX_DELAY);
     handleModeSwitch();
@@ -278,11 +280,14 @@ static void uwbTask(void* parameters) {
         xSemaphoreTake(algoSemaphore, portMAX_DELAY);
         dwHandleInterrupt(dwm);
         xSemaphoreGive(algoSemaphore);
+      //  DEBUG_PRINT("uwbTask while \n");
       } while(digitalRead(GPIO_PIN_IRQ) != 0);
     } else {
       xSemaphoreTake(algoSemaphore, portMAX_DELAY);
       timeout = algorithm->onEvent(dwm, eventTimeout);
       xSemaphoreGive(algoSemaphore);
+
+     // DEBUG_PRINT("uwbTask else \n");
     }
   }
 }
@@ -467,10 +472,10 @@ static void dwm1000Init(DeckInfo *info)
   NVIC_Init(&NVIC_InitStructure);
 
   vSemaphoreCreateBinary(irqSemaphore);
-  algoSemaphore= xSemaphoreCreateMutex();
+  vSemaphoreCreateBinary(algoSemaphore);
 
-  xTaskCreate(uwbTask, LPS_DECK_TASK_NAME, 3*configMINIMAL_STACK_SIZE, NULL,
-                    LPS_DECK_TASK_PRI, NULL);
+  xTaskCreate(uwbTask, "lps", 3*configMINIMAL_STACK_SIZE, NULL,
+                    5/*priority*/, NULL);
 
   isInit = true;
 }

@@ -9,12 +9,10 @@
 #define DEFAULT_ESTIMATOR complementaryEstimator
 static StateEstimatorType currentEstimator = anyEstimator;
 
-static void initEstimator(const StateEstimatorType estimator);
-static void deinitEstimator(const StateEstimatorType estimator);
+static void initEstimator();
 
 typedef struct {
   void (*init)(void);
-  void (*deinit)(void);
   bool (*test)(void);
   void (*update)(state_t *state, sensorData_t *sensors, control_t *control, const uint32_t tick);
   const char* name;
@@ -25,88 +23,71 @@ typedef struct {
   bool (*estimatorEnqueueTOF)(const tofMeasurement_t *tof);
   bool (*estimatorEnqueueAbsoluteHeight)(const heightMeasurement_t *height);
   bool (*estimatorEnqueueFlow)(const flowMeasurement_t *flow);
-  bool (*estimatorEnqueueYawError)(const yawErrorMeasurement_t *error);
-  bool (*estimatorEnqueueSweepAngles)(const sweepAngleMeasurement_t *angles);
 } EstimatorFcns;
 
 #define NOT_IMPLEMENTED ((void*)0)
 
 static EstimatorFcns estimatorFunctions[] = {
-    {
-        .init = NOT_IMPLEMENTED,
-        .deinit = NOT_IMPLEMENTED,
-        .test = NOT_IMPLEMENTED,
-        .update = NOT_IMPLEMENTED,
-        .name = "None",
-        .estimatorEnqueueTDOA = NOT_IMPLEMENTED,
-        .estimatorEnqueuePosition = NOT_IMPLEMENTED,
-        .estimatorEnqueuePose = NOT_IMPLEMENTED,
-        .estimatorEnqueueDistance = NOT_IMPLEMENTED,
-        .estimatorEnqueueTOF = NOT_IMPLEMENTED,
-        .estimatorEnqueueAbsoluteHeight = NOT_IMPLEMENTED,
-        .estimatorEnqueueFlow = NOT_IMPLEMENTED,
-        .estimatorEnqueueYawError = NOT_IMPLEMENTED,
-        .estimatorEnqueueSweepAngles = NOT_IMPLEMENTED,
-    }, // Any estimator
-    {
-        .init = estimatorComplementaryInit,
-        .deinit = NOT_IMPLEMENTED,
-        .test = estimatorComplementaryTest,
-        .update = estimatorComplementary,
-        .name = "Complementary",
-        .estimatorEnqueueTDOA = NOT_IMPLEMENTED,
-        .estimatorEnqueuePosition = NOT_IMPLEMENTED,
-        .estimatorEnqueuePose = NOT_IMPLEMENTED,
-        .estimatorEnqueueDistance = NOT_IMPLEMENTED,
-        .estimatorEnqueueTOF = estimatorComplementaryEnqueueTOF,
-        .estimatorEnqueueAbsoluteHeight = NOT_IMPLEMENTED,
-        .estimatorEnqueueFlow = NOT_IMPLEMENTED,
-        .estimatorEnqueueYawError = NOT_IMPLEMENTED,
-        .estimatorEnqueueSweepAngles = NOT_IMPLEMENTED,
-    },
-    {
-        .init = estimatorKalmanInit,
-        .deinit = NOT_IMPLEMENTED,
-        .test = estimatorKalmanTest,
-        .update = estimatorKalman,
-        .name = "Kalman",
-        .estimatorEnqueueTDOA = estimatorKalmanEnqueueTDOA,
-        .estimatorEnqueuePosition = estimatorKalmanEnqueuePosition,
-        .estimatorEnqueuePose = estimatorKalmanEnqueuePose,
-        .estimatorEnqueueDistance = estimatorKalmanEnqueueDistance,
-        .estimatorEnqueueTOF = estimatorKalmanEnqueueTOF,
-        .estimatorEnqueueAbsoluteHeight = estimatorKalmanEnqueueAbsoluteHeight,
-        .estimatorEnqueueFlow = estimatorKalmanEnqueueFlow,
-        .estimatorEnqueueYawError = estimatorKalmanEnqueueYawError,
-        .estimatorEnqueueSweepAngles = estimatorKalmanEnqueueSweepAngles,
+  {
+    .init = 0,
+    .test = 0,
+    .update = 0,
+    .name = "None",
+    .estimatorEnqueueTDOA = NOT_IMPLEMENTED,
+    .estimatorEnqueuePosition = NOT_IMPLEMENTED,
+    .estimatorEnqueuePose = NOT_IMPLEMENTED,
+    .estimatorEnqueueDistance = NOT_IMPLEMENTED,
+    .estimatorEnqueueTOF = NOT_IMPLEMENTED,
+    .estimatorEnqueueAbsoluteHeight = NOT_IMPLEMENTED,
+    .estimatorEnqueueFlow = NOT_IMPLEMENTED,
+  }, // Any estimator
+  {
+    .init = estimatorComplementaryInit,
+    .test = estimatorComplementaryTest,
+    .update = estimatorComplementary,
+    .name = "Complementary",
+    .estimatorEnqueueTDOA = NOT_IMPLEMENTED,
+    .estimatorEnqueuePosition = NOT_IMPLEMENTED,
+    .estimatorEnqueuePose = NOT_IMPLEMENTED,
+    .estimatorEnqueueDistance = NOT_IMPLEMENTED,
+    .estimatorEnqueueTOF = NOT_IMPLEMENTED,
+    .estimatorEnqueueAbsoluteHeight = NOT_IMPLEMENTED,
+    .estimatorEnqueueFlow = NOT_IMPLEMENTED,
+  },
+  {
+    .init = estimatorKalmanInit,
+    .test = estimatorKalmanTest,
+    .update = estimatorKalman,
+    .name = "Kalman",
+    .estimatorEnqueueTDOA = estimatorKalmanEnqueueTDOA,
+    .estimatorEnqueuePosition = estimatorKalmanEnqueuePosition,
+    .estimatorEnqueuePose = estimatorKalmanEnqueuePose,
+    .estimatorEnqueueDistance = estimatorKalmanEnqueueDistance,
+    .estimatorEnqueueTOF = estimatorKalmanEnqueueTOF,
+    .estimatorEnqueueAbsoluteHeight = estimatorKalmanEnqueueAbsoluteHeight,
+    .estimatorEnqueueFlow = estimatorKalmanEnqueueFlow,
     },
 };
 
-void stateEstimatorInit(StateEstimatorType estimator) {
-  stateEstimatorSwitchTo(estimator);
-}
 
-void stateEstimatorSwitchTo(StateEstimatorType estimator) {
+void stateEstimatorInit(StateEstimatorType estimator) {
   if (estimator < 0 || estimator >= StateEstimatorTypeCount) {
     return;
   }
 
-  StateEstimatorType newEstimator = estimator;
+  currentEstimator = estimator;
 
-  if (anyEstimator == newEstimator) {
-    newEstimator = DEFAULT_ESTIMATOR;
+  if (anyEstimator == currentEstimator) {
+    currentEstimator = DEFAULT_ESTIMATOR;
   }
 
   StateEstimatorType forcedEstimator = ESTIMATOR_NAME;
   if (forcedEstimator != anyEstimator) {
     DEBUG_PRINT("Estimator type forced\n");
-    newEstimator = forcedEstimator;
+    currentEstimator = forcedEstimator;
   }
 
-  initEstimator(newEstimator);
-  StateEstimatorType previousEstimator = currentEstimator;
-  currentEstimator = newEstimator;
-  deinitEstimator(previousEstimator);
+  initEstimator();
 
   DEBUG_PRINT("Using %s (%d) estimator\n", stateEstimatorGetName(), currentEstimator);
 }
@@ -115,16 +96,8 @@ StateEstimatorType getStateEstimator(void) {
   return currentEstimator;
 }
 
-static void initEstimator(const StateEstimatorType estimator) {
-  if (estimatorFunctions[estimator].init) {
-    estimatorFunctions[estimator].init();
-  }
-}
-
-static void deinitEstimator(const StateEstimatorType estimator) {
-  if (estimatorFunctions[estimator].deinit) {
-    estimatorFunctions[estimator].deinit();
-  }
+static void initEstimator() {
+  estimatorFunctions[currentEstimator].init();
 }
 
 bool stateEstimatorTest(void) {
@@ -143,14 +116,6 @@ const char* stateEstimatorGetName() {
 bool estimatorEnqueueTDOA(const tdoaMeasurement_t *uwb) {
   if (estimatorFunctions[currentEstimator].estimatorEnqueueTDOA) {
     return estimatorFunctions[currentEstimator].estimatorEnqueueTDOA(uwb);
-  }
-
-  return false;
-}
-
-bool estimatorEnqueueYawError(const yawErrorMeasurement_t* error) {
-  if (estimatorFunctions[currentEstimator].estimatorEnqueueYawError) {
-    return estimatorFunctions[currentEstimator].estimatorEnqueueYawError(error);
   }
 
   return false;
@@ -204,10 +169,3 @@ bool estimatorEnqueueFlow(const flowMeasurement_t *flow) {
   return false;
 }
 
-bool estimatorEnqueueSweepAngles(const sweepAngleMeasurement_t *angles) {
-  if (estimatorFunctions[currentEstimator].estimatorEnqueueSweepAngles) {
-    return estimatorFunctions[currentEstimator].estimatorEnqueueSweepAngles(angles);
-  }
-
-  return false;
-}

@@ -29,7 +29,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "imu_types.h"
-#include "lighthouse_geometry.h"
 
 /* Data structure used by the stabilizer subsystem.
  * All have a timestamp to be set when the data is calculated.
@@ -139,6 +138,8 @@ typedef struct sensorData_s {
   Axis3f gyro;              // deg/s
   Axis3f mag;               // gauss
   baro_t baro;
+  zDistance_t zrange;
+  point_t position;         // m
 #ifdef LOG_SEC_IMU
   Axis3f accSec;            // Gs
   Axis3f gyroSec;           // deg/s
@@ -160,6 +161,26 @@ typedef struct control_s {
   int16_t yaw;
   float thrust;
 } control_t;
+
+typedef struct control_sv2 {
+  double roll;
+  double pitch;
+  double yaw;
+  double thrust;
+} control_tv2;
+
+typedef struct control_spos {
+  double phid;
+  double thetad;
+  double thrust;
+} control_tpos;
+
+typedef struct radio_s {
+  float Rps4;
+  float Pps4;
+  float Yps4;
+  uint8_t Tps4;
+} radio_t;
 
 typedef enum mode_e {
   modeDisable = 0,
@@ -232,26 +253,6 @@ typedef struct heightMeasurement_s {
   float height;
   float stdDev;
 } heightMeasurement_t;
-
-/** Yaw error measurement */
-typedef struct {
-  uint32_t timestamp;
-  float yawError;
-  float stdDev;
-} yawErrorMeasurement_t;
-
-/** Sweep angle measurement */
-typedef struct {
-  uint32_t timestamp;
-  vec3d* baseStationPos;
-  mat3d* baseStationRot;     // Base station rotation matrix
-  mat3d* baseStationRotInv;  // Inverted base station rotation matrix
-  float angleX;
-  float angleY;
-  float stdDevX;
-  float stdDevY;
-  vec3d* sensorPos;
-} sweepAngleMeasurement_t;
 
 // Frequencies to bo used with the RATE_DO_EXECUTE_HZ macro. Do NOT use an arbitrary number.
 #define RATE_1000_HZ 1000

@@ -24,6 +24,9 @@
  * main.c - Containing the main function.
  */
 
+#include <math.h>
+#include <stdlib.h>
+
 /* Personal configs */
 #include "FreeRTOSConfig.h"
 
@@ -42,6 +45,7 @@
 /* ST includes */
 #include "stm32fxxx.h"
 
+
 int main() 
 {
   //Initialize the platform.
@@ -59,8 +63,17 @@ int main()
 
   //TODO: Move to platform launch failed
   ledInit();
-  ledSet(0, 1);
-  ledSet(1, 1);
+  //ledSet(0, 1); //Original
+  //ledSet(1, 1); //Original
+
+ //Only for test
+  ledSet(0, 1); //M3 only blue
+
+  ledSet(2, 1); //M4 red
+  ledSet(1, 0); //M4 green
+
+  ledSet(4, 0); //M1 red
+  ledSet(3, 1); //M1 green
 
   //Should never reach this point!
   while(1);

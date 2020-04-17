@@ -39,6 +39,9 @@
 
 #include "imu.h"
 
+#include "zranger.h"
+#include "zranger2.h"
+
 #include "FreeRTOS.h"
 #include "semphr.h"
 #include "task.h"
@@ -60,7 +63,6 @@
 #include "bmp280.h"
 #include "bmp3.h"
 #include "bstdr_comm_support.h"
-#include "static_mem.h"
 
 #define SENSORS_READ_RATE_HZ            1000
 #define SENSORS_STARTUP_TIME_MS         1000
@@ -150,22 +152,14 @@ static struct bmp280_t bmp280Dev;
 static struct bmm150_dev bmm150Dev;
 
 static xQueueHandle accelPrimDataQueue;
-STATIC_MEM_QUEUE_ALLOC(accelPrimDataQueue, 1, sizeof(Axis3f));
 static xQueueHandle gyroPrimDataQueue;
-STATIC_MEM_QUEUE_ALLOC(gyroPrimDataQueue, 1, sizeof(Axis3f));
 #ifdef LOG_SEC_IMU
 static xQueueHandle accelSecDataQueue;
-STATIC_MEM_QUEUE_ALLOC(accelSecDataQueue, 1, sizeof(Axis3f));
 static xQueueHandle gyroSecDataQueue;
-STATIC_MEM_QUEUE_ALLOC(gyroSecDataQueue, 1, sizeof(Axis3f));
 #endif
 static xQueueHandle baroPrimDataQueue;
-STATIC_MEM_QUEUE_ALLOC(baroPrimDataQueue, 1, sizeof(Axis3f));
 static xQueueHandle magPrimDataQueue;
-STATIC_MEM_QUEUE_ALLOC(magPrimDataQueue, 1, sizeof(baro_t));
-
 static xSemaphoreHandle dataReady;
-static StaticSemaphore_t dataReadyBuffer;
 
 static bool isInit = false;
 static bool allSensorsAreCalibrated = false;
@@ -202,8 +196,6 @@ static void sensorsBiasMalloc(BiasObj* bias);
 static void sensorsBiasFree(BiasObj* bias);
 static void sensorsBiasBufPtrIncrement(BiasObj* bias);
 
-STATIC_MEM_TASK_ALLOC(sensorsTask, SENSORS_TASK_STACKSIZE);
-
 void sensorsBoschInit(void)
 {
   if (isInit)
@@ -211,7 +203,7 @@ void sensorsBoschInit(void)
       return;
     }
 
-  dataReady = xSemaphoreCreateBinaryStatic(&dataReadyBuffer);
+  dataReady = xSemaphoreCreateBinary();
 
   sensorsDeviceInit();
   sensorsTaskInit();
@@ -386,16 +378,17 @@ static void sensorsDeviceInit(void)
 
 static void sensorsTaskInit(void)
 {
-  accelPrimDataQueue = STATIC_MEM_QUEUE_CREATE(accelPrimDataQueue);
-  gyroPrimDataQueue = STATIC_MEM_QUEUE_CREATE(gyroPrimDataQueue);
+  accelPrimDataQueue = xQueueCreate(1, sizeof(Axis3f));
+  gyroPrimDataQueue = xQueueCreate(1, sizeof(Axis3f));
 #ifdef LOG_SEC_IMU
-  accelSecDataQueue = STATIC_MEM_QUEUE_CREATE(accelSecDataQueue);
-  gyroSecDataQueue= STATIC_MEM_QUEUE_CREATE(gyroSecDataQueue);
+  accelSecDataQueue = xQueueCreate(1, sizeof(Axis3f));
+  gyroSecDataQueue = xQueueCreate(1, sizeof(Axis3f));
 #endif
-  magPrimDataQueue = STATIC_MEM_QUEUE_CREATE(magPrimDataQueue);
-  baroPrimDataQueue = STATIC_MEM_QUEUE_CREATE(baroPrimDataQueue);
+  magPrimDataQueue = xQueueCreate(1, sizeof(Axis3f));
+  baroPrimDataQueue = xQueueCreate(1, sizeof(baro_t));
 
-  STATIC_MEM_TASK_CREATE(sensorsTask, sensorsTask, SENSORS_TASK_NAME, NULL, SENSORS_TASK_PRI);
+  xTaskCreate(sensorsTask, SENSORS_TASK_NAME, SENSORS_TASK_STACKSIZE,
+              NULL, SENSORS_TASK_PRI, NULL);
 }
 
 static void sensorsGyroGet(Axis3i16* dataOut, uint8_t device) {
@@ -857,6 +850,9 @@ void sensorsBoschAcquire(sensorData_t *sensors, const uint32_t tick)
   sensorsReadAcc(&sensors->acc);
   sensorsReadMag(&sensors->mag);
   sensorsReadBaro(&sensors->baro);
+  if (!zRangerReadRange(&sensors->zrange, tick)) {
+    zRanger2ReadRange(&sensors->zrange, tick);
+  }
 #ifdef LOG_SEC_IMU
   sensorsReadGyroSec(&sensors->gyroSec);
   sensorsReadAccSec(&sensors->accSec);

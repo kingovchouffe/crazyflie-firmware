@@ -49,7 +49,7 @@ void commInit(void)
     return;
 
   uartslkInit();
-  radiolinkInit();
+  radiolinkInit();  // radiolink.c (hal)
 
   /* These functions are moved to be initialized early so
    * that DEBUG_PRINT can be used early */
@@ -60,8 +60,8 @@ void commInit(void)
 
   crtpserviceInit();
   platformserviceInit();
-  logInit();
-  paramInit();
+  logInit();              // log.c (modules)
+  paramInit();            // param.c (modules)
   locSrvInit();
 
   //setup CRTP communication channel

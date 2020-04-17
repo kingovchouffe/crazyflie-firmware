@@ -224,6 +224,7 @@ void motorsSetRatio(uint32_t id, uint16_t ithrust)
 
     ASSERT(id < NBR_OF_MOTORS);
 
+    //DEBUG_PRINT("ithrust = %i \n",ithrust);
     ratio = ithrust;
 
   #ifdef ENABLE_THRUST_BAT_COMPENSATED
@@ -242,10 +243,12 @@ void motorsSetRatio(uint32_t id, uint16_t ithrust)
     if (motorMap[id]->drvType == BRUSHLESS)
     {
       motorMap[id]->setCompare(motorMap[id]->tim, motorsBLConv16ToBits(ratio));
+
     }
     else
     {
       motorMap[id]->setCompare(motorMap[id]->tim, motorsConv16ToBits(ratio));
+
     }
   }
 }

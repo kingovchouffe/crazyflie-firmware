@@ -2,15 +2,14 @@
 #define __LPS_TDOA_STATS_H__
 
 #include <inttypes.h>
-#include "statsCnt.h"
 
 typedef struct {
-  statsCntRateLogger_t packetsReceived;
-  statsCntRateLogger_t packetsToEstimator;
-  statsCntRateLogger_t contextHitCount;
-  statsCntRateLogger_t contextMissCount;
-  statsCntRateLogger_t timeIsGood;
-  statsCntRateLogger_t suitableDataFound;
+  uint32_t packetsReceived;
+  uint32_t packetsToEstimator;
+  uint32_t contextHitCount;
+  uint32_t contextMissCount;
+  uint32_t timeIsGood;
+  uint32_t suitableDataFound;
 
   // Anchor ids to use for stats
   uint8_t anchorId; // The id of the anchor to log
@@ -18,13 +17,22 @@ typedef struct {
 
   // Clock correction for the anchor identified by anchorId
   float clockCorrection;
-  statsCntRateLogger_t clockCorrectionCount;
+  uint32_t clockCorrectionCount;
 
   // TOF data from remoteAnchorId to anchorId, measured by anchorId
   uint16_t tof;
 
   // TDoA (in meters) between anchorId and remoteAnchorId
   float tdoa;
+
+
+  uint16_t packetsReceivedRate;
+  uint16_t packetsToEstimatorRate;
+  uint16_t contextHitRate;
+  uint16_t contextMissRate;
+  uint16_t timeIsGoodRate;
+  uint16_t suitableDataFoundRate;
+  uint16_t clockCorrectionRate;
 
   uint32_t nextStatisticsTime;
   uint32_t previousStatisticsTime;

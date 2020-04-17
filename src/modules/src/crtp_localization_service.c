@@ -43,6 +43,8 @@
 #include "estimator.h"
 #include "quatcompress.h"
 
+#include "debug.h"
+
 #define NBR_OF_RANGES_IN_PACKET   5
 #define DEFAULT_EMERGENCY_STOP_TIMEOUT (1 * RATE_MAIN_LOOP)
 
@@ -107,6 +109,8 @@ void locSrvInit()
 
   uint64_t address = configblockGetRadioAddress();
   my_id = address & 0xFF;
+
+ // DEBUG_PRINT("Hello locSrvInit.\n");
 
   crtpRegisterPortCB(CRTP_PORT_LOCALIZATION, locSrvCrtpCB);
   isInit = true;

@@ -29,6 +29,8 @@
 #include "log.h"
 #include "param.h"
 
+#include "debug.h"
+
 #define M_PI_F ((float) M_PI)
 
 //#define MADWICK_QUATERNION_IMU
@@ -273,6 +275,8 @@ void sensfusion6GetEulerRPY(float* roll, float* pitch, float* yaw)
   *yaw = atan2f(2*(q0*q3 + q1*q2), q0*q0 + q1*q1 - q2*q2 - q3*q3) * 180 / M_PI_F;
   *pitch = asinf(gx) * 180 / M_PI_F; //Pitch seems to be inverted
   *roll = atan2f(gy, gz) * 180 / M_PI_F;
+
+  //DEBUG_PRINT("q0=%f; q3=%f; \n", (double)q0, (double)q3);
 }
 
 float sensfusion6GetAccZWithoutGravity(const float ax, const float ay, const float az)
